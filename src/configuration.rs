@@ -23,7 +23,7 @@ impl DatabaseSettings {
 
     pub fn connection_string_without_db(&self) -> String {
         format!(
-            "postgres://{}:{}@{}:{}",
+            "postgres://{}:{}@{}:{}/postgres",
             self.username, self.password, self.host, self.port
         )
     }
@@ -32,7 +32,7 @@ impl DatabaseSettings {
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let settings = config::Config::builder()
         .add_source(config::File::new(
-            "configs/config.yaml",
+            "config.yaml",
             config::FileFormat::Yaml,
         ))
         .build()?;

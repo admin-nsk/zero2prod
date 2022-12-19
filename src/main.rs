@@ -17,6 +17,7 @@ async fn main() -> std::io::Result<()> {
     // you can choose to bind to all interfaces, 0.0.0.0, instead, but be aware
     // of the security implications when you expose the server on all interfaces.
     let address = format!("127.0.0.1:{}", configuration.application_port);
+    println!("{}", address);
     let listener = TcpListener::bind(address)?;
     run(listener, connection_pool)?.await?;
     Ok(())

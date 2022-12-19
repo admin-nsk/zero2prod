@@ -14,7 +14,6 @@ async fn spawn_app() -> TestApp {
     // We retrieve the port assigned to us by the OS
     let port = listener.local_addr().unwrap().port();
     let address = format!("http://127.0.0.1:{}", port);
-
     let mut configuration = get_configuration().expect("Failed to read configuration.");
     configuration.database.database_name = Uuid::new_v4().to_string();
     let connection_pool = configure_database(&configuration.database).await;
