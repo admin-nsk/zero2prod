@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 use uuid::Uuid;
@@ -64,9 +65,9 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to create database.");
 
     // Migrate database
-    let connection_pool = PgPool::connect_with(config.with_postgres_db())
-        .await
-        .expect("Failed to connect to Postgres.");
+    let connection_pool = PgPool::connect_lazy_with(config.with_postgres_db());
+        // .await
+        // .expect("Failed to connect to Postgres.");
     sqlx::migrate!("./migrations")
         .run(&connection_pool)
         .await
@@ -96,20 +97,21 @@ async fn health_check_works() {
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
-    // Arrange
     let app = spawn_app().await;
     let client = reqwest::Client::new();
-    let params = [("email", "guin@gmail.com"), ("name", "leguin")];
-
+    // let form = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+    let mut params = HashMap::new();
+    params.insert("email", "ursula_le_guin@gmail.com");
+    params.insert("name", "le guin");
     // Act
     let response = client
         .post(&format!("{}/subscriptions", &app.address))
-        // .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("Content-Type", "application/x-www-form-urlencoded")
         .form(&params)
         .send()
         .await
         .expect("Failed to execute request.");
-
+    println!("response: {:?}", response);
     // Assert
     assert_eq!(200, response.status().as_u16());
 
@@ -118,8 +120,8 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
         .await
         .expect("Failed to fetch saved subscription.");
 
-    assert_eq!(saved.email, "guin@gmail.com");
-    assert_eq!(saved.name, "leguin");
+    assert_eq!(saved.email, "ursula_le_guin@gmail.com");
+    assert_eq!(saved.name, "le guin");
 }
 
 #[tokio::test]
@@ -154,31 +156,34 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_invalid() {
     }
 }
 
-// #[tokio::test]
-// async fn subscriber_returns_a_400_when_fields_are_present_but_invalid() {
-//     let app = spawn_app().await;
-//     let client = reqwest::Client::new();
-//     let test_cases = vec![
-//         ("name=&email=ursula_le_guin%40gmail.com", "empty name"),
-//         ("name=Ursula&email=", "empty email"),
-//         ("name=Ursula&email=definitely-not-an-email", "invalid email",)
-//     ];
-//
-//     for (body, description) in test_cases {
-//         let response = client
-//             .post(&format!("{}/subscriptions", &app.address))
-//             .header("Content-Type", "application/x-www-form-urlencoded")
-//             .body(body)
-//             .send()
-//             .await
-//             .expect("Filed to execute request.");
-//
-//         assert_eq!(
-//             400,
-//             response.status().as_u16(),
-//             "The API did not return a 200 OK when the payload was {}",
-//             description
-//         )
-//     }
-//
-// }
+#[tokio::test]
+async fn subscribe_returns_a_400_when_data_is_missing() {
+    // Arrange
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+    let test_cases = vec![
+        ("name=le%20guin", "missing the email"),
+        ("email=ursula_le_guin%40gmail.com", "missing the name"),
+        ("", "missing both name and email"),
+    ];
+
+    for (invalid_body, error_message) in test_cases {
+        // Act
+        let response = client
+            .post(&format!("{}/subscriptions", &app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(invalid_body)
+            .send()
+            .await
+            .expect("Failed to execute request.");
+
+        // Assert
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            // Additional customised error message on test failure
+            "The API did not fail with 400 Bad Request when the payload was {}.",
+            error_message
+        );
+    }
+}
